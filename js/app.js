@@ -387,7 +387,14 @@ wrap.addEventListener('drop', e => {
 const drawer = $('#calibDrawer'), dragHandle = $('#dragHandle');
 function openDrawer() { drawer.classList.add('open'); drawer.style.width = state.calib.drawerWidth + 'px'; drawer.setAttribute('aria-hidden', 'false'); refreshCalibUI(); drawChart(); drawCanvas(); }
 function closeDrawer() { drawer.classList.remove('open'); drawer.setAttribute('aria-hidden', 'true'); drawCanvas(); }
-$('#openCalib').onclick = openDrawer; $('#closeCalib').onclick = closeDrawer;
+$('#openCalib').onclick = () => {
+    if (drawer.classList.contains('open')) {
+        closeDrawer();
+    } else {
+        openDrawer();
+    }
+};
+$('#closeCalib').onclick = closeDrawer;
 /* Resize */
 let resizing = false, startX = 0, startW = 0;
 dragHandle.addEventListener('mousedown', e => { resizing = true; startX = e.clientX; startW = drawer.getBoundingClientRect().width; document.body.style.userSelect = 'none'; });
