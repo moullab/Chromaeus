@@ -149,23 +149,26 @@ thead th{position:sticky; top:0; background:var(--table-head); z-index:1; text-a
 }
 
 /* ======= Drawer unified with main UI ======= */
-.drawer{
-  position:fixed;
-  top:0;
-  right:0;
-  height:100vh;
-  width:520px;
-  background:var(--card);
-  border-left:1px solid var(--grid);
-  box-shadow:-4px 0 16px rgba(0,0,0,.18);
-  transform:translateX(100%);
-  transition:transform .22s ease;
-  z-index:40;
-  display:flex;
-  flex-direction:column;
+.drawer {
+  position: fixed;
+  top: 50px;
+  right: 0;
+  height: calc(100vh - 50px);
+  width: 520px;
+  background: var(--card);
+  border-left: 1px solid var(--grid);
+  box-shadow: -4px 0 16px rgba(0,0,0,.18);
+    transform: translateX(100%);
+  transition: transform .22s ease;
+    z-index: 40; 
+  display: flex;
+  flex-direction: column;
 }
 
-.drawer.open{transform:translateX(0)}
+/* Open State */
+.drawer.open {
+  transform: translateX(0);
+}
 
 .drawerHead{
   padding:10px;
