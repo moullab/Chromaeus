@@ -59,6 +59,25 @@ input[type="range"]{height:6px}
 .grid2{display:grid; grid-template-columns:repeat(2,1fr); gap:6px}
 .grid3{display:grid; grid-template-columns:repeat(3,1fr); gap:6px}
 
+/* Checkbox Styling */
+.checkLabel {
+    display: flex;
+    align-items: center;
+    gap: 12px; 
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: normal;
+    color: var(--text);
+    user-select: none;
+    margin-left: 8px; 
+}
+
+.checkLabel input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--accent); 
+}
 /* tighter cards */
 .card.general{min-width:300px}
 .card.selection{min-width:250px}
