@@ -58,26 +58,66 @@ function fitCanvasToImage() {
 }
 function setZoomUI() { $('#zoomSlider').value = Math.round(state.view.zoom * 100); $('#zoomVal').textContent = Math.round(state.view.zoom * 100) + '%'; }
 function clearCtx() { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, canvas.width, canvas.height); }
+/* Updated Painter - Hides Drag Ghost for Magic Wand */
 function drawCanvas() {
-    clearCtx(); if (!state.image) return; ctx.drawImage(state.image, 0, 0);
+    clearCtx(); 
+    if (!state.image) return; 
+    ctx.drawImage(state.image, 0, 0);
+
     const inCalib = $('#calibDrawer').classList.contains('open');
     const stroke = inCalib ? getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#23d9b4' : '#41d36a';
-    ctx.save(); ctx.lineWidth = 2; ctx.strokeStyle = stroke;
+    
+    ctx.save(); 
+    ctx.lineWidth = 2; 
+    ctx.strokeStyle = stroke;
+    
+    // DRAW EXISTING ROIS
     state.rois.forEach(roi => {
-        if (roi.type === 'rect') { ctx.strokeRect(roi.geom.x, roi.geom.y, roi.geom.w, roi.geom.h); }
-        else { ctx.beginPath(); ctx.arc(roi.geom.cx, roi.geom.cy, roi.geom.r, 0, Math.PI * 2); ctx.stroke(); }
+        if (roi.type === 'rect' || roi.type === 'auto') { 
+            // Draw Box for Rect and Auto
+            ctx.strokeRect(roi.geom.x, roi.geom.y, roi.geom.w, roi.geom.h); 
+            
+            // Optional: Draw 'Auto' label to distinguish
+            if (roi.type === 'auto') {
+                ctx.fillStyle = stroke;
+                ctx.font = `${10 / state.view.scale}px sans-serif`;
+                ctx.fillText("✨", roi.geom.x, roi.geom.y - 2);
+            }
+        } else { 
+            ctx.beginPath(); 
+            ctx.arc(roi.geom.cx, roi.geom.cy, roi.geom.r, 0, Math.PI * 2); 
+            ctx.stroke(); 
+        }
     });
     ctx.restore();
 
+    // DRAW DRAG GHOST (Only for Rect and Circle)
     if (state.tool.drag) {
-        ctx.save(); ctx.setLineDash([6, 5]); ctx.lineWidth = 2; ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#23d9b4';
-        const { x0, y0, x1, y1 } = state.tool.drag; const x = Math.min(x0, x1), y = Math.min(y0, y1), w = Math.abs(x1 - x0), h = Math.abs(y1 - y0);
-        if (state.tool.mode === 'rect') { ctx.strokeRect(x, y, w, h); }
-        else { const r = Math.min(w, h) / 2; ctx.beginPath(); ctx.arc(x + w / 2, y + h / 2, r, 0, Math.PI * 2); ctx.stroke(); }
+        // FIX: If tool is 'wand', DO NOT DRAW anything while dragging
+        if (state.tool.mode === 'wand') return; 
+
+        ctx.save(); 
+        ctx.setLineDash([6, 5]); 
+        ctx.lineWidth = 2; 
+        ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#23d9b4';
+        
+        const { x0, y0, x1, y1 } = state.tool.drag; 
+        const x = Math.min(x0, x1), y = Math.min(y0, y1), w = Math.abs(x1 - x0), h = Math.abs(y1 - y0);
+        
+        if (state.tool.mode === 'rect') { 
+            ctx.strokeRect(x, y, w, h); 
+        } else { 
+            const r = Math.min(w, h) / 2; 
+            ctx.beginPath(); 
+            ctx.arc(x + w / 2, y + h / 2, r, 0, Math.PI * 2); 
+            ctx.stroke(); 
+        }
         ctx.restore();
     } else if (state.tool.areaMode === 'fix' && state.tool.fixedPrimed && state.tool.ghost) {
-        const g = state.tool.fixedSize; const { x, y } = lastMouseImgPos || { x: 0, y: 0 };
-        ctx.save(); ctx.globalAlpha = .35; ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--accent') || '#23d9b4';
+        // (Existing Fixed Area Ghost logic remains here...)
+        const g = state.tool.fixedSize; 
+        const { x, y } = lastMouseImgPos || { x: 0, y: 0 };
+        ctx.save(); ctx.globalAlpha = .35; ctx.fillStyle = '#23d9b4';
         if (state.tool.mode === 'rect') { ctx.fillRect(Math.round(x - g.w / 2), Math.round(y - g.h / 2), g.w, g.h); }
         else { const r = Math.floor(Math.min(g.w, g.h) / 2); ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); }
         ctx.restore();
@@ -193,15 +233,10 @@ $('#toolRect').onclick = () => setTool('rect');
 $('#toolCircle').onclick = () => setTool('circle');
 $('#toolWand').onclick = () => setTool('wand');
 
-$('#areaModeBtn').onclick = () => {
-    if (state.tool.areaMode === 'vary') { 
-        state.tool.areaMode = 'fix'; 
-        state.tool.fixedPrimed = false; 
-        $('#areaModeBtn').textContent = 'Vary area'; 
-    } else { 
-        state.tool.areaMode = 'vary'; 
-        $('#areaModeBtn').textContent = 'Fix area'; 
-    }
+/* Fixed Mode Checkbox Logic */
+$('#fixedModeCheck').onchange = (e) => {
+    state.tool.areaMode = e.target.checked ? 'fix' : 'vary';
+    state.tool.fixedPrimed = false; // Reset the size memory when toggling
     drawCanvas();
 };
 
@@ -229,27 +264,97 @@ document.addEventListener('keydown', e => {
 });
 
 /* ===== ROI measure ===== */
+/* Updated Measure Logic with Boundary Safety */
 function measureROI(roi) {
     const off = state.off; if (!off.canvas) return;
     const d = off.ctx.getImageData(0, 0, off.canvas.width, off.canvas.height).data;
-    let rSum = 0, gSum = 0, bSum = 0, count = 0; const W = off.canvas.width;
-    function acc(i, j) { const idx = (j * W + i) * 4; rSum += d[idx]; gSum += d[idx + 1]; bSum += d[idx + 2]; }
-    if (roi.type === 'rect') {
+    let rSum = 0, gSum = 0, bSum = 0, count = 0; 
+    const W = off.canvas.width;
+    const H = off.canvas.height;
+
+    // Helper: Safely add pixel. If out of bounds, IGNORE it.
+    function acc(i, j) { 
+        if (i < 0 || i >= W || j < 0 || j >= H) return; // Safety Check!
+        const idx = (j * W + i) * 4; 
+        rSum += d[idx]; gSum += d[idx + 1]; bSum += d[idx + 2]; 
+    }
+
+    // --- CASE A: Magic Wand (Auto) ---
+    if (roi.type === 'auto' && roi.mask) {
+        for (let k = 0; k < roi.mask.length; k++) {
+            const idx = roi.mask[k];
+            // Safety check for mask indices
+            if (idx >= 0 && idx < d.length) {
+                rSum += d[idx];
+                gSum += d[idx + 1];
+                bSum += d[idx + 2];
+                count++;
+            }
+        }
+    } 
+    // --- CASE B: Rectangle ---
+    else if (roi.type === 'rect') {
         const { x, y, w, h } = roi.geom;
         for (let j = y; j < y + h; j++) for (let i = x; i < x + w; i++) acc(i, j), count++;
-    } else {
-        const { cx, cy, r } = roi.geom, x0 = cx - r, y0 = cy - r, w = r * 2, h = r * 2;
-        for (let j = y0; j < y0 + h; j++) for (let i = x0; i < x0 + w; i++) { const dx = i - cx, dy = j - cy; if (dx * dx + dy * dy <= r * r) { acc(i, j); count++; } }
+    } 
+    // --- CASE C: Circle ---
+    else {
+        // Fallback for circle
+        const geom = roi.geom || {}; 
+        
+        // Handle Auto without mask (fallback to rect)
+        if (roi.type === 'auto') {
+             const { x, y, w, h } = geom;
+             const ix = Math.floor(x), iy = Math.floor(y), iw = Math.floor(w), ih = Math.floor(h);
+             for (let j = iy; j < iy + ih; j++) for (let i = ix; i < ix + iw; i++) acc(i, j), count++;
+        } 
+        // Actual Circle Logic
+        else {
+             const { cx, cy, r } = geom;
+             
+             // FIX: Force coordinates to be Integers! 
+             // This prevents the "Yellow/NaN" bug caused by reading "Pixel 15.5"
+             const icx = Math.floor(cx);
+             const icy = Math.floor(cy);
+             const ir = Math.floor(r);
+             
+             const x0 = icx - ir, y0 = icy - ir, w = ir * 2, h = ir * 2;
+             
+             for (let j = y0; j < y0 + h; j++) for (let i = x0; i < x0 + w; i++) { 
+                 const dx = i - icx, dy = j - icy; 
+                 if (dx * dx + dy * dy <= ir * ir) { acc(i, j); count++; } 
+             }
+        }
     }
+
+    if (count === 0) count = 1; 
+
     const r = rSum / count, g = gSum / count, b = bSum / count;
     const hsv = RGBtoHSV(r, g, b), lab = RGBtoLab(r, g, b), cmyk = RGBtoCMYK(r, g, b);
-    roi.px = count; roi.metrics = { rgb: { r: Math.round(r), g: Math.round(g), b: Math.round(b), mean: (r + g + b) / 3 }, hsv, lab, cmyk, hex: rgbToHex(Math.round(r), Math.round(g), Math.round(b)) };
+    
+    roi.px = count; 
+    roi.metrics = { 
+        rgb: { r: Math.round(r), g: Math.round(g), b: Math.round(b), mean: (r + g + b) / 3 }, 
+        hsv, lab, cmyk, 
+        hex: rgbToHex(Math.round(r), Math.round(g), Math.round(b)) 
+    };
 }
 function addROI(spec) {
-    const id = state.nextId++; const roi = { id, type: spec.type, geom: spec.geom }; measureROI(roi);
+    const id = state.nextId++; 
+    const roi = { 
+        id, 
+        type: spec.type, 
+        geom: spec.geom, 
+        mask: spec.mask
+    }; 
+    
+    measureROI(roi);
     state.rois.push(roi);
+    
     pushHistory({ type: 'add', roi: JSON.parse(JSON.stringify(roi)) });
+    
     if (!state.calib.working.points[id]) state.calib.working.points[id] = { include: true, level: null, unit: state.calib.working.unit, isBlank: false };
+    
     renderTable(); renderRoiBar(); buildCalibrationTable(); drawChart(); drawCanvas();
 }
 
@@ -342,7 +447,7 @@ function renderRoiBar() {
 
         // left half: ROI image
         const halfW = 60;
-        if (r.type === 'rect') {
+        if (r.type === 'rect' || r.type === 'auto') {
             const { x, y, w, h } = r.geom;
             t.drawImage(offCanvas, x, y, w, h, 0, 0, halfW, c.height);
         } else {
@@ -845,7 +950,10 @@ function magicWand(startX, startY, tolerancePercent) {
     const idx = (startY * W + startX) * 4;
     const r0 = d[idx], g0 = d[idx+1], b0 = d[idx+2];
     
-    const tol = (tolerancePercent / 100) * 255;
+    // ADJUSTMENT: Use 442 (Max Euclidean Dist) for better 0-100 scaling
+    // This makes the slider behave more linearly like Photoshop
+    // MODIFIED: Square the percentage to give more precision at low numbers
+    const tol = Math.pow(tolerancePercent / 100, 2) * 442;
     const tolSq = tol * tol;
 
     function matches(i) {
@@ -855,6 +963,8 @@ function magicWand(startX, startY, tolerancePercent) {
 
     const stack = [[startX, startY]];
     const seen = new Uint8Array(W * H);
+    const mask = []; // NEW: Array to store the specific green pixels
+    
     let minX = W, maxX = 0, minY = H, maxY = 0;
     let pixelCount = 0;
     
@@ -866,6 +976,7 @@ function magicWand(startX, startY, tolerancePercent) {
         const colorIdx = i * 4;
         if(matches(colorIdx)) {
             seen[i] = 1;
+            mask.push(colorIdx); // NEW: Save this pixel index!
             pixelCount++;
             
             if(x < minX) minX = x;
@@ -883,8 +994,9 @@ function magicWand(startX, startY, tolerancePercent) {
     if(pixelCount === 0) return null;
 
     return {
-        type: 'rect',
-        geom: {
+        type: 'auto', // NEW: Identifies this as an irregular shape
+        mask: mask,   // NEW: Passes the pixel list to the rest of the app
+        geom: {       // KEEP: We still need this for drawing the box on screen
             x: minX,
             y: minY,
             w: (maxX - minX) + 1,
