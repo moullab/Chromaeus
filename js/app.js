@@ -1152,9 +1152,10 @@ $('#linkCite').onclick = () => {
     openModal('How to Cite', `
         <p>If you use Chromaeus in your research, please cite:</p>
         <div class="cite-box">
-            Moulahoum, H. and Ghorbanizamani, F., 2026. Chromaeus: A Browser-Based Analytical Platform for Quantitative Colorimetric Measurement in Digital Chemistry Applications. <i>Analytical Methods</i>. DOI: https://doi.org/10.1039/D6AY00168H.
+            Moulahoum, H. and Ghorbanizamani, F., 2026. Chromaeus: A Browser-Based Analytical Platform for Quantitative Colorimetric Measurement in Digital Chemistry Applications. <i>Analytical Methods</i>. DOI: <a href="https://doi.org/10.1039/D6AY00168H" target="_blank" rel="noopener noreferrer">https://doi.org/10.1039/D6AY00168H</a>
         </div>
         <p style="margin-top:10px; font-size:12px; color:#666">Click text to copy (Coming soon)</p>
     `);
 
 };
+
