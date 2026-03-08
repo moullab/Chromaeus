@@ -1152,8 +1152,9 @@ $('#linkCite').onclick = () => {
     openModal('How to Cite', `
         <p>If you use Chromaeus in your research, please cite:</p>
         <div class="cite-box">
-            Moulahoum, H., et al. (2026). Chromaeus: A Client-Side Web Application for Colorimetric Analysis. <i>Journal Name</i>, Vol(Issue), pp-pp.
+            Moulahoum, H. and Ghorbanizamani, F., 2026. Chromaeus: A Browser-Based Analytical Platform for Quantitative Colorimetric Measurement in Digital Chemistry Applications. <i>Analytical Methods</i>. DOI: https://doi.org/10.1039/D6AY00168H.
         </div>
         <p style="margin-top:10px; font-size:12px; color:#666">Click text to copy (Coming soon)</p>
     `);
+
 };
